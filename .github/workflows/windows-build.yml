@@ -1,0 +1,56 @@
+name: Build Alpha Windows App
+run-name: Build Alpha Windows App
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore NuGet packages
+        shell: pwsh
+        run: dotnet restore .\src\AlphaNative\AlphaNative.csproj -r win-x64
+
+      - name: Build portable single-file app
+        shell: pwsh
+        run: .\scripts\publish-single-exe.ps1 -Runtime win-x64
+
+      - name: Upload portable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Alpha-portable-win-x64
+          path: dist/win-x64/**
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Install Inno Setup in temporary runner
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: .\scripts\build-installer.ps1
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Alpha-installer-win-x64
+          path: dist/installer/**
+          if-no-files-found: error
+          retention-days: 14

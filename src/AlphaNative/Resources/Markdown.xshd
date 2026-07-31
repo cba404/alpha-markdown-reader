@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="Markdown" extensions=".md;.markdown" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Heading" foreground="#6F42C1" fontWeight="bold" />
+  <Color name="Emphasis" foreground="#8250DF" fontStyle="italic" />
+  <Color name="Strong" foreground="#CF222E" fontWeight="bold" />
+  <Color name="Code" foreground="#0550AE" background="#F1F3F5" fontFamily="Consolas" />
+  <Color name="Quote" foreground="#6E7781" fontStyle="italic" />
+  <Color name="Link" foreground="#0969DA" />
+  <Color name="List" foreground="#953800" fontWeight="bold" />
+  <Color name="Math" foreground="#116329" />
+  <Color name="Comment" foreground="#8C959F" fontStyle="italic" />
+
+  <Rule color="Heading">^#{1,6}\s.*$</Rule>
+  <Rule color="Quote">^\s*&gt;.*$</Rule>
+  <Rule color="List">^\s*(?:[-+*]|\d+\.)\s</Rule>
+  <Rule color="Link">!?\[[^\]]+\]\([^\)]+\)</Rule>
+  <Rule color="Strong">\*\*[^\*]+\*\*</Rule>
+  <Rule color="Emphasis">(?&lt;!\*)\*[^\*]+\*(?!\*)</Rule>
+  <Rule color="Code">`[^`]+`</Rule>
+  <Rule color="Math">\$[^$\r\n]+\$</Rule>
+  <Rule color="Comment">&lt;!--.*?--&gt;</Rule>
+  <Span color="Code" begin="^\s*```" end="^\s*```" multiline="true" />
+  <Span color="Math" begin="^\s*\$\$\s*$" end="^\s*\$\$\s*$" multiline="true" />
+</SyntaxDefinition>

@@ -1319,12 +1319,14 @@ function greet(name) {
     private void InsertMenu_Click(object sender, RoutedEventArgs e)
     {
         ExportPopup.IsOpen = false;
+        InsertPopup.PlacementTarget = InsertMenuButton;
         InsertPopup.IsOpen = !InsertPopup.IsOpen;
     }
 
     private void ExportMenu_Click(object sender, RoutedEventArgs e)
     {
         InsertPopup.IsOpen = false;
+        ExportPopup.PlacementTarget = ExportMenuButton;
         ExportPopup.IsOpen = !ExportPopup.IsOpen;
     }
 
@@ -1433,6 +1435,9 @@ function greet(name) {
         SetBrush("AccentBrush", dark ? "#8AA4FF" : "#3659E3");
         SetBrush("AccentSoftBrush", dark ? "#242F54" : "#E9EDFF");
         SetBrush("CodeBackground", dark ? "#111722" : "#F6F8FA");
+        SetBrush("PopupSurfaceBrush", dark ? "#171D28" : "#FFFFFF");
+        SetBrush("PopupSurfaceAltBrush", dark ? "#202838" : "#F6F8FC");
+        SetBrush("PopupDividerBrush", dark ? "#2B3443" : "#E7EBF3");
         ThemeButton.Content = dark ? "浅色" : "深色";
         _stateSavePending = true;
         Editor.Background = (Brush)FindResource("PanelBackground");

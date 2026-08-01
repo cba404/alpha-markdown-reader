@@ -44,8 +44,8 @@
                     <Button Content="另存为" Click="SaveAs_Click" />
                     
 <Button x:Name="InsertMenuButton" Content="插入 ▾" Click="InsertMenu_Click" ToolTip="插入 Markdown 格式与内容" Style="{StaticResource ToolbarDropDownButton}" />
-<Popup x:Name="InsertPopup" PlacementTarget="{Binding ElementName=InsertMenuButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
-    <Border Width="660" Margin="0,8,0,0" Padding="18" CornerRadius="18" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+<Popup x:Name="InsertPopup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+    <Border Width="660" MaxHeight="720" Margin="0,8,0,0" Padding="18" CornerRadius="18" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <StackPanel>
             <TextBlock Text="标题" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,12" />
             <WrapPanel>
@@ -95,7 +95,7 @@
                 <Button Tag="task" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56" Margin="0,0,0,10"><StackPanel Orientation="Horizontal"><TextBlock Text="☑" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="任务列表" FontSize="16"/></StackPanel></Button>
                 <Button Tag="link" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="↗" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="链接" FontSize="16"/></StackPanel></Button>
                 <Button Tag="image" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="▨" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="图片" FontSize="16"/></StackPanel></Button>
-                <Button Tag="code" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="{}" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="代码块" FontSize="16"/></StackPanel></Button>
+                <Button Tag="code" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="&#123;&#125;" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="代码块" FontSize="16"/></StackPanel></Button>
                 <Button Tag="table" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56" Margin="0,0,0,10"><StackPanel Orientation="Horizontal"><TextBlock Text="▦" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="表格" FontSize="16"/></StackPanel></Button>
             </WrapPanel>
 
@@ -112,7 +112,7 @@
 <Button Content="查找" Click="Find_Click" ToolTip="查找文本（Ctrl+F）" />
                     
 <Button x:Name="ExportMenuButton" Content="导出 ▾" Click="ExportMenu_Click" ToolTip="导出为 HTML 或 PDF" Style="{StaticResource ToolbarDropDownButton}" />
-<Popup x:Name="ExportPopup" PlacementTarget="{Binding ElementName=ExportMenuButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+<Popup x:Name="ExportPopup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
     <Border Width="460" Margin="0,8,0,0" CornerRadius="18" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <StackPanel Margin="12">
             <Button Click="ExportPdf_Click" Style="{StaticResource ExportRowButton}">

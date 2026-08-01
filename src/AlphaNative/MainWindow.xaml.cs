@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _editorScrollSyncTimer;
     private readonly DispatcherTimer _previewScrollTimer;
     private readonly SearchPanel _searchPanel;
+    private readonly MarkdownEditorTypographyTransformer _editorTypographyTransformer = new();
     private readonly string[] _startupPaths;
     private readonly List<DocumentSession> _documents = new();
     private readonly List<NavigationHeading> _navigationHeadings = new();
@@ -1789,13 +1790,20 @@ function greet(name) {
         {
             var uri = new Uri("Resources/Markdown.xshd", UriKind.Relative);
             var info = Application.GetResourceStream(uri);
-            if (info?.Stream is null) return;
-            using var reader = XmlReader.Create(info.Stream);
-            Editor.SyntaxHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+            if (info?.Stream is not null)
+            {
+                using var reader = XmlReader.Create(info.Stream);
+                Editor.SyntaxHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+            }
         }
         catch
         {
             // Editor stays fully functional even when the optional XSHD resource fails to load.
+        }
+
+        if (!Editor.TextArea.TextView.LineTransformers.Contains(_editorTypographyTransformer))
+        {
+            Editor.TextArea.TextView.LineTransformers.Add(_editorTypographyTransformer);
         }
     }
 

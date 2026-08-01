@@ -11,9 +11,9 @@
     <AssemblyName>α</AssemblyName>
     <RootNamespace>AlphaNative</RootNamespace>
     <ApplicationIcon>Assets\Alpha.ico</ApplicationIcon>
-    <Version>1.1.1</Version>
-    <AssemblyVersion>1.1.1.0</AssemblyVersion>
-    <FileVersion>1.1.1.0</FileVersion>
+    <Version>1.1.2</Version>
+    <AssemblyVersion>1.1.2.0</AssemblyVersion>
+    <FileVersion>1.1.2.0</FileVersion>
     <Authors>Alpha contributors</Authors>
     <Product>α Markdown 编辑器</Product>
     <Description>原生 Windows Markdown 编辑器，支持 LaTeX、代码高亮、同步预览、HTML 与 PDF 输出。</Description>

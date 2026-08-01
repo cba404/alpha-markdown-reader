@@ -236,21 +236,23 @@
                             <TextBlock Text="MARKDOWN 编辑" Foreground="{DynamicResource MutedBrush}" FontSize="11" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center" />
                             <TextBlock x:Name="FileNameText" Text="未命名.md" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="12,0" VerticalAlignment="Center" HorizontalAlignment="Right" />
                         </DockPanel>
-                        <avalon:TextEditor x:Name="Editor" Grid.Row="1"
-                                           ShowLineNumbers="False"
-                                           ScrollViewer.IsDeferredScrollingEnabled="True"
-                                           FontFamily="Segoe UI, Microsoft YaHei UI"
-                                           FontSize="16"
-                                           TextOptions.TextFormattingMode="Ideal"
-                                           TextOptions.TextRenderingMode="ClearType"
-                                           WordWrap="True"
-                                           HorizontalScrollBarVisibility="Auto"
-                                           VerticalScrollBarVisibility="Auto"
-                                           Padding="32,18,32,80"
-                                           Background="{DynamicResource PanelBackground}"
-                                           Foreground="{DynamicResource TextBrush}"
-                                           PreviewMouseWheel="Editor_PreviewMouseWheel"
-                                           TextChanged="Editor_TextChanged" />
+                        <Border Grid.Row="1" ClipToBounds="True" Background="{DynamicResource PanelBackground}">
+                            <avalon:TextEditor x:Name="Editor"
+                                               ShowLineNumbers="False"
+                                               ScrollViewer.IsDeferredScrollingEnabled="True"
+                                               FontFamily="Segoe UI, Microsoft YaHei UI"
+                                               FontSize="16"
+                                               TextOptions.TextFormattingMode="Ideal"
+                                               TextOptions.TextRenderingMode="ClearType"
+                                               WordWrap="True"
+                                               HorizontalScrollBarVisibility="Auto"
+                                               VerticalScrollBarVisibility="Auto"
+                                               Padding="32,18,32,24"
+                                               Background="{DynamicResource PanelBackground}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               PreviewMouseWheel="Editor_PreviewMouseWheel"
+                                               TextChanged="Editor_TextChanged" />
+                        </Border>
                     </Grid>
                 </Border>
 
@@ -270,16 +272,18 @@
                                 <TextBlock x:Name="FormulaStatusText" Text="公式正常" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="5,0" VerticalAlignment="Center" />
                             </StackPanel>
                         </DockPanel>
-                        <FlowDocumentScrollViewer x:Name="PreviewViewer" Grid.Row="1"
-                                                  IsToolBarVisible="False"
-                                                  ScrollViewer.IsDeferredScrollingEnabled="True"
-                                                  VerticalScrollBarVisibility="Auto"
-                                                  HorizontalScrollBarVisibility="Disabled"
-                                                  Focusable="True"
-                                                  Background="{DynamicResource PanelBackground}"
-                                                  PreviewMouseWheel="PreviewViewer_PreviewMouseWheel"
-                                                  PreviewMouseDown="PreviewViewer_PreviewMouseDown"
-                                                  PreviewKeyDown="PreviewViewer_PreviewKeyDown" />
+                        <Border Grid.Row="1" ClipToBounds="True" Background="{DynamicResource PanelBackground}">
+                            <FlowDocumentScrollViewer x:Name="PreviewViewer"
+                                                      IsToolBarVisible="False"
+                                                      ScrollViewer.IsDeferredScrollingEnabled="True"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      Focusable="True"
+                                                      Background="{DynamicResource PanelBackground}"
+                                                      PreviewMouseWheel="PreviewViewer_PreviewMouseWheel"
+                                                      PreviewMouseDown="PreviewViewer_PreviewMouseDown"
+                                                      PreviewKeyDown="PreviewViewer_PreviewKeyDown" />
+                        </Border>
                     </Grid>
                 </Border>
             </Grid>

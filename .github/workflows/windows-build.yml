@@ -39,9 +39,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Install Inno Setup in temporary runner
+      - name: Install and verify Inno Setup
         shell: pwsh
-        run: choco install innosetup --yes --no-progress
+        run: |
+          choco install innosetup --yes --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) {
+            throw "Chocolatey 安装 Inno Setup 失败，退出码：$LASTEXITCODE"
+          }
+          $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            throw 'Inno Setup 已安装，但在 PATH 中没有找到 ISCC.exe。'
+          }
+          if (-not (Test-Path $iscc.Source)) {
+            throw "ISCC.exe 命令存在，但目标文件不存在：$($iscc.Source)"
+          }
+          Write-Host "ISCC.exe: $($iscc.Source)"
 
       - name: Build Windows installer
         shell: pwsh

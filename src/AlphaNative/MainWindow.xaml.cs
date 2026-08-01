@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private bool _previewRefreshPending;
     private bool _navigationRefreshPending = true;
     private bool _stateSavePending;
+    private bool _componentInitialized;
     private int _lastPreviewSyncedLine = -1;
     private int _lastPreviewAnchorIndex;
     private int _activeNavigationIndex = -1;
@@ -200,6 +201,10 @@ function greet(name) {
         Editor.TextArea.TextView.ScrollOffsetChanged += (_, _) => EditorScrolled();
         Editor.TextArea.Caret.PositionChanged += (_, _) =>
             UpdateActiveNavigationItem(Editor.Document.GetLineByOffset(Editor.CaretOffset).LineNumber);
+
+        // XAML 中部分控件会在 InitializeComponent 期间触发 Checked/Unchecked。
+        // 只有所有计时器和服务初始化完成后，才允许这些事件进入业务逻辑。
+        _componentInitialized = true;
 
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         Loaded += MainWindow_Loaded;
@@ -523,7 +528,11 @@ function greet(name) {
 
     private void QueueScrollSync()
     {
-        if (SyncScrollCheck.IsChecked != true || _viewMode != "split") return;
+        // InitializeComponent 期间 SyncScrollCheck 可能已触发事件，
+        // 此时计时器尚未创建，必须直接忽略本次队列请求。
+        if (!_componentInitialized || SyncScrollCheck is null ||
+            SyncScrollCheck.IsChecked != true || _viewMode != "split") return;
+
         _scrollSyncQueued = true;
         if (!_editorScrollSyncTimer.IsEnabled) _editorScrollSyncTimer.Start();
     }
@@ -1519,6 +1528,10 @@ function greet(name) {
 
     private void SyncScroll_Changed(object sender, RoutedEventArgs e)
     {
+        // IsChecked="True" 会在 InitializeComponent 中触发该事件。
+        // 构造尚未完成时不访问计时器、状态栏或预览对象。
+        if (!_componentInitialized) return;
+
         if (SyncScrollCheck.IsChecked == true)
         {
             _previewUserOverride = false;

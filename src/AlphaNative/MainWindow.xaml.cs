@@ -23,6 +23,8 @@ namespace AlphaNative;
 public partial class MainWindow : Window
 {
     private const string ProductName = "α";
+    private const int MaxCachedPreviewDocuments = 1;
+    private const int MaxCachedPreviewTextLength = 80_000;
     private readonly MarkdownDocumentRenderer _renderer = new();
     private readonly AppStateService _stateService = new();
     private readonly DispatcherTimer _previewTimer;
@@ -65,7 +67,10 @@ public partial class MainWindow : Window
     private string _viewMode = "split";
     private int _untitledSequence = 1;
     private bool _navigationVisible = true;
-    private string _wheelScrollMode = "gentle";
+    private string _wheelScrollMode = "three";
+    private bool _showLineNumbers;
+    private double _editorWheelLineRemainder;
+    private double _previewWheelLineRemainder;
 
     private sealed record NavigationHeading(int Level, string Title, int Line);
     private sealed record PreviewCacheEntry(string? FilePath, bool DarkMode, RenderResult Result);
@@ -220,8 +225,10 @@ function greet(name) {
         _darkMode = _state.DarkMode;
         _navigationVisible = _state.ReadingNavigationVisible;
         _wheelScrollMode = NormalizeWheelScrollMode(_state.WheelScrollMode);
+        _showLineNumbers = _state.ShowLineNumbers;
         SyncScrollCheck.IsChecked = _state.SyncScroll;
         ApplyWheelScrollMode(_wheelScrollMode, showStatus: false);
+        ApplyLineNumberVisibility(_showLineNumbers, showStatus: false);
         ApplyTheme(_darkMode, refresh: false);
         SetNavigationVisibility(_navigationVisible);
 
@@ -294,6 +301,7 @@ function greet(name) {
         _editorScrollSyncTimer.Stop();
         _previewScrollTimer.Stop();
         _stateTimer.Stop();
+        ReleasePreviewVisuals(trimRendererCaches: true);
     }
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -475,14 +483,14 @@ function greet(name) {
 
     private void StorePreviewCache(DocumentSession document, RenderResult result)
     {
-        if ((Editor.Document?.TextLength ?? 0) > 250_000)
+        if ((Editor.Document?.TextLength ?? 0) > MaxCachedPreviewTextLength)
         {
             InvalidatePreviewCache(document);
             return;
         }
         _previewCache[document] = new PreviewCacheEntry(_currentPath, _darkMode, result);
         TouchPreviewCache(document);
-        while (_previewCacheLru.Count > 4)
+        while (_previewCacheLru.Count > MaxCachedPreviewDocuments)
         {
             var oldest = _previewCacheLru.First!.Value;
             _previewCacheLru.RemoveFirst();
@@ -500,6 +508,39 @@ function greet(name) {
     {
         _previewCache.Remove(document);
         _previewCacheLru.Remove(document);
+    }
+
+    private void ClearPreviewCache()
+    {
+        _previewCache.Clear();
+        _previewCacheLru.Clear();
+    }
+
+    private void ReleasePreviewVisuals(bool trimRendererCaches = false)
+    {
+        _previewTimer.Stop();
+        ClearPreviewCache();
+        _sourceAnchors.Clear();
+        _sourceAnchors = new SortedDictionary<int, TextPointer>();
+        _anchorLines = Array.Empty<int>();
+        _lastPreviewAnchorIndex = 0;
+        _lastPreviewSyncedLine = -1;
+        PreviewViewer.Document = new FlowDocument
+        {
+            PagePadding = new Thickness(24),
+            Background = CurrentTheme().PanelBackground,
+            Foreground = CurrentTheme().Foreground
+        };
+        _previewRefreshPending = true;
+        _renderer.TrimCaches(trimRendererCaches);
+    }
+
+    private void RequestManagedMemoryCleanup()
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+        {
+            GC.Collect(2, GCCollectionMode.Optimized, blocking: false, compacting: false);
+        }));
     }
 
     private void EditorScrolled()
@@ -586,10 +627,19 @@ function greet(name) {
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) ||
             Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) return;
 
+        var lineDelta = ConsumeWheelLineDelta(e.Delta, ref _editorWheelLineRemainder);
+        if (lineDelta == 0) return;
+
         _editorScroll ??= FindVisualChild<ScrollViewer>(Editor);
-        if (ScrollByWheel(_editorScroll, e.Delta))
+        if (ScrollEditorByVisualLines(lineDelta))
         {
             e.Handled = true;
+            if (SyncScrollCheck.IsChecked == true && _viewMode == "split")
+            {
+                _previewUserOverride = false;
+                _scrollSyncQueued = true;
+                if (!_editorScrollSyncTimer.IsEnabled) _editorScrollSyncTimer.Start();
+            }
         }
     }
 
@@ -598,31 +648,103 @@ function greet(name) {
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) ||
             Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) return;
 
+        var lineDelta = ConsumeWheelLineDelta(e.Delta, ref _previewWheelLineRemainder);
+        if (lineDelta == 0) return;
+
         BeginPreviewUserScroll();
         _previewScroll ??= FindVisualChild<ScrollViewer>(PreviewViewer);
-        if (ScrollByWheel(_previewScroll, e.Delta))
+        if (ScrollPreviewBySourceLines(lineDelta))
         {
             e.Handled = true;
         }
     }
 
-    private bool ScrollByWheel(ScrollViewer? scrollViewer, int delta)
+    private int ConsumeWheelLineDelta(int delta, ref double remainder)
     {
-        if (scrollViewer is null || delta == 0) return false;
-        var wheelSteps = delta / 120d;
-        var pixelsPerStep = _wheelScrollMode switch
-        {
-            "fast" => 96d,
-            "standard" => 66d,
-            _ => 42d
-        };
+        if (delta == 0) return 0;
+        remainder += -(delta / 120d) * GetWheelLinesPerNotch();
+        var wholeLines = remainder >= 0 ? Math.Floor(remainder) : Math.Ceiling(remainder);
+        remainder -= wholeLines;
+        return (int)wholeLines;
+    }
+
+    private int GetWheelLinesPerNotch() => _wheelScrollMode switch
+    {
+        "one" => 1,
+        "five" => 5,
+        _ => 3
+    };
+
+    private bool ScrollEditorByVisualLines(int lineDelta)
+    {
+        if (_editorScroll is null || lineDelta == 0) return false;
+        var lineHeight = Math.Max(1d, Editor.TextArea.TextView.DefaultLineHeight);
         var target = Math.Clamp(
-            scrollViewer.VerticalOffset - wheelSteps * pixelsPerStep,
+            _editorScroll.VerticalOffset + lineDelta * lineHeight,
             0,
-            scrollViewer.ScrollableHeight);
-        if (Math.Abs(target - scrollViewer.VerticalOffset) < 0.25) return false;
-        scrollViewer.ScrollToVerticalOffset(target);
+            _editorScroll.ScrollableHeight);
+        if (Math.Abs(target - _editorScroll.VerticalOffset) < 0.25) return false;
+        _editorScroll.ScrollToVerticalOffset(target);
         return true;
+    }
+
+    private bool ScrollPreviewBySourceLines(int lineDelta)
+    {
+        if (_previewScroll is null || lineDelta == 0) return false;
+
+        if (_anchorLines.Length == 0 || Editor.Document is null)
+        {
+            var fallbackLineHeight = Math.Max(18d, (PreviewViewer.Document?.FontSize ?? 15d) * 1.55d);
+            var fallbackTarget = Math.Clamp(
+                _previewScroll.VerticalOffset + lineDelta * fallbackLineHeight,
+                0,
+                _previewScroll.ScrollableHeight);
+            if (Math.Abs(fallbackTarget - _previewScroll.VerticalOffset) < 0.25) return false;
+            _previewScroll.ScrollToVerticalOffset(fallbackTarget);
+            return true;
+        }
+
+        var currentSourceLine = GetPreviewTopSourceLine();
+        var requestedSourceLine = Math.Clamp(
+            currentSourceLine + lineDelta,
+            1,
+            Editor.Document.LineCount);
+        var targetSourceLine = ResolvePreviewWheelAnchorLine(
+            currentSourceLine,
+            requestedSourceLine,
+            lineDelta);
+        if (targetSourceLine == currentSourceLine) return false;
+
+        ScrollPreviewToSourceLine(targetSourceLine);
+        if (SyncScrollCheck.IsChecked == true && _viewMode == "split")
+        {
+            SyncEditorToPreview(targetSourceLine);
+        }
+        if (_navigationVisible) UpdateActiveNavigationItem(targetSourceLine);
+        return true;
+    }
+
+    private int ResolvePreviewWheelAnchorLine(int currentLine, int requestedLine, int direction)
+    {
+        if (_anchorLines.Length == 0) return requestedLine;
+
+        var currentIndex = Array.BinarySearch(_anchorLines, currentLine);
+        if (currentIndex < 0) currentIndex = Math.Max(0, ~currentIndex - 1);
+
+        var targetIndex = Array.BinarySearch(_anchorLines, requestedLine);
+        if (direction > 0)
+        {
+            if (targetIndex < 0) targetIndex = ~targetIndex;
+            if (targetIndex <= currentIndex) targetIndex = currentIndex + 1;
+        }
+        else
+        {
+            if (targetIndex < 0) targetIndex = ~targetIndex - 1;
+            if (targetIndex >= currentIndex) targetIndex = currentIndex - 1;
+        }
+
+        targetIndex = Math.Clamp(targetIndex, 0, _anchorLines.Length - 1);
+        return _anchorLines[targetIndex];
     }
 
     private void WheelSpeedMenu_Click(object sender, RoutedEventArgs e) => OpenButtonContextMenu(sender);
@@ -633,29 +755,54 @@ function greet(name) {
         ApplyWheelScrollMode(mode, showStatus: true);
     }
 
+    private void ShowLineNumbers_Click(object sender, RoutedEventArgs e)
+    {
+        var visible = sender is MenuItem { IsChecked: true };
+        ApplyLineNumberVisibility(visible, showStatus: true);
+    }
+
+    private void ApplyLineNumberVisibility(bool visible, bool showStatus)
+    {
+        _showLineNumbers = visible;
+        Editor.ShowLineNumbers = visible;
+        if (WheelSpeedButton.ContextMenu is { } menu)
+        {
+            var lineNumberItem = menu.Items.OfType<MenuItem>()
+                .FirstOrDefault(item => item.Tag is string tag && tag == "lineNumbers");
+            if (lineNumberItem is not null) lineNumberItem.IsChecked = visible;
+        }
+        _stateSavePending = true;
+        if (showStatus) SetStatus(visible ? "编辑器行号已显示" : "编辑器行号已隐藏");
+    }
+
     private void ApplyWheelScrollMode(string mode, bool showStatus)
     {
         _wheelScrollMode = NormalizeWheelScrollMode(mode);
+        _editorWheelLineRemainder = 0;
+        _previewWheelLineRemainder = 0;
         if (WheelSpeedButton.ContextMenu is { } menu)
         {
             foreach (var item in menu.Items.OfType<MenuItem>())
             {
-                item.IsChecked = item.Tag is string tag && tag == _wheelScrollMode;
+                if (item.Tag is string tag && tag is "one" or "three" or "five")
+                {
+                    item.IsChecked = tag == _wheelScrollMode;
+                }
             }
         }
-        var label = _wheelScrollMode switch
-        {
-            "fast" => "快速",
-            "standard" => "标准",
-            _ => "舒缓"
-        };
-        WheelSpeedButton.Content = $"滚轮：{label} ▾";
+        var lineCount = GetWheelLinesPerNotch();
+        WheelSpeedButton.Content = $"滚轮：{lineCount} 行 ▾";
         _stateSavePending = true;
-        if (showStatus) SetStatus($"滚轮灵敏度已设为{label}");
+        if (showStatus) SetStatus($"滚轮已设为每格移动 {lineCount} 行");
     }
 
-    private static string NormalizeWheelScrollMode(string? mode)
-        => mode is "standard" or "fast" ? mode : "gentle";
+    private static string NormalizeWheelScrollMode(string? mode) => mode switch
+    {
+        "one" => "one",
+        "five" or "fast" => "five",
+        "three" or "gentle" or "standard" => "three",
+        _ => "three"
+    };
 
     private void PreviewViewer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         => BeginPreviewUserScroll();
@@ -1054,6 +1201,7 @@ function greet(name) {
         }
 
         CaptureCurrentDocumentState();
+        ClearPreviewCache();
         _previewTimer.Stop();
         _editorScrollSyncTimer.Stop();
         _previewScrollTimer.Stop();
@@ -1066,7 +1214,10 @@ function greet(name) {
         _currentPath = document.FilePath;
         _stateSavePending = true;
         _dirty = document.IsDirty;
-        SetEditorText(document.Text, document.IsDirty);
+        var documentText = document.Text;
+        SetEditorText(documentText, document.IsDirty);
+        // 活动文档内容已经由 AvalonEdit 持有，清空会话副本，避免大文档字符串重复占用内存。
+        document.Text = string.Empty;
         RefreshDocumentTabs();
 
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
@@ -1158,6 +1309,7 @@ function greet(name) {
         var wasActive = document == _activeDocument;
         _documents.Remove(document);
         InvalidatePreviewCache(document);
+        document.Text = string.Empty;
         _stateSavePending = true;
 
         if (_documents.Count == 0)
@@ -1174,6 +1326,7 @@ function greet(name) {
             RefreshDocumentTabs();
         }
         SetStatus($"已关闭 {document.DisplayName}");
+        RequestManagedMemoryCleanup();
     }
 
     private void SwitchDocument(int direction)
@@ -1192,7 +1345,7 @@ function greet(name) {
         {
             File.WriteAllText(_currentPath, Editor.Text, new UTF8Encoding(false));
             _dirty = false;
-            _activeDocument.Text = Editor.Text;
+            _activeDocument.Text = string.Empty;
             _activeDocument.FilePath = _currentPath;
             _activeDocument.IsDirty = false;
             UpdateTitle();
@@ -1280,6 +1433,10 @@ function greet(name) {
         catch (Exception ex)
         {
             MessageBox.Show(this, ex.Message, "导出 PDF 失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _renderer.TrimCaches(aggressive: false);
         }
     }
 
@@ -1485,6 +1642,8 @@ function greet(name) {
                 EditorColumn.Width = new GridLength(1, GridUnitType.Star);
                 SplitterColumn.Width = new GridLength(0);
                 PreviewColumn.Width = new GridLength(0);
+                ReleasePreviewVisuals(trimRendererCaches: false);
+                RequestManagedMemoryCleanup();
                 break;
             case "preview":
                 EditorPane.Visibility = Visibility.Collapsed;
@@ -1602,7 +1761,7 @@ function greet(name) {
     private void SaveAppState()
     {
         var needsRecoveryText = _activeDocument is { IsDirty: true, FilePath: null };
-        CaptureCurrentDocumentState(captureText: needsRecoveryText);
+        CaptureCurrentDocumentState(captureText: false);
         var state = new AppState
         {
             LastFile = _currentPath,
@@ -1610,15 +1769,17 @@ function greet(name) {
                 .Select(d => d.FilePath!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray(),
-            RecoveryText = needsRecoveryText ? _activeDocument?.Text : null,
+            RecoveryText = needsRecoveryText ? Editor.Text : null,
             DarkMode = _darkMode,
             SyncScroll = SyncScrollCheck.IsChecked == true,
             ReadingNavigationVisible = _navigationVisible,
             WheelScrollMode = _wheelScrollMode,
+            ShowLineNumbers = _showLineNumbers,
             WindowWidth = ActualWidth > 0 ? ActualWidth : Width,
             WindowHeight = ActualHeight > 0 ? ActualHeight : Height
         };
         _stateService.Save(state);
+        if (_activeDocument is not null) _activeDocument.Text = string.Empty;
         _stateSavePending = false;
     }
 
@@ -1635,6 +1796,22 @@ function greet(name) {
         catch
         {
             // Editor stays fully functional even when the optional XSHD resource fails to load.
+        }
+    }
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        if (!_componentInitialized) return;
+        if (WindowState == WindowState.Minimized)
+        {
+            ReleasePreviewVisuals(trimRendererCaches: false);
+            RequestManagedMemoryCleanup();
+            return;
+        }
+
+        if (_viewMode != "editor" && _previewRefreshPending)
+        {
+            SchedulePreviewRefresh(immediate: true);
         }
     }
 

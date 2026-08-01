@@ -25,21 +25,26 @@ namespace AlphaNative.Services;
 
 public sealed class MarkdownDocumentRenderer
 {
-    private const int MaxImageCacheEntries = 24;
-    private const int MaxFormulaCacheEntries = 160;
+    private const int MaxImageCacheEntries = 6;
+    private const int MaxFormulaCacheEntries = 64;
+    private const long MaxImageCacheBytes = 24L * 1024 * 1024;
+    private const int PreviewImageDecodeWidth = 1400;
     private static readonly FontFamily UiFont = new("Segoe UI, Microsoft YaHei UI");
     private static readonly FontFamily CodeFont = new("Cascadia Mono, Consolas");
 
     private readonly MarkdownPipeline _pipeline;
     private readonly SortedDictionary<int, WpfBlock> _anchorBlocks = new();
-    private readonly Dictionary<string, BitmapSource> _imageCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, CachedBitmap> _imageCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Queue<string> _imageCacheOrder = new();
+    private long _imageCacheBytes;
     private readonly Dictionary<string, string?> _formulaValidationCache = new(StringComparer.Ordinal);
     private RendererTheme _theme = RendererTheme.Light;
     private string? _baseDirectory;
     private bool _forPrint;
     private int _formulaErrors;
     private int _codeBlocks;
+
+    private sealed record CachedBitmap(BitmapSource Bitmap, long EstimatedBytes);
 
     public MarkdownDocumentRenderer()
     {
@@ -552,16 +557,15 @@ public sealed class MarkdownDocumentRenderer
             return new PreparedFormula(latex, null);
         }
 
-        var compatible = LatexCompatibilityService.Normalize(latex);
-        if (string.Equals(compatible, latex, StringComparison.Ordinal))
+        foreach (var compatible in LatexCompatibilityService.GetFallbacks(latex))
         {
-            return new PreparedFormula(latex, originalError);
+            if (ValidateFormula(compatible) is null)
+            {
+                return new PreparedFormula(compatible, null);
+            }
         }
 
-        var compatibleError = ValidateFormula(compatible);
-        return compatibleError is null
-            ? new PreparedFormula(compatible, null)
-            : new PreparedFormula(latex, originalError);
+        return new PreparedFormula(latex, originalError);
     }
 
     private readonly record struct PreparedFormula(string Formula, string? Error);
@@ -634,23 +638,72 @@ public sealed class MarkdownDocumentRenderer
         var key = uri.IsFile && File.Exists(uri.LocalPath)
             ? $"{uri.AbsoluteUri}|{File.GetLastWriteTimeUtc(uri.LocalPath).Ticks}"
             : uri.AbsoluteUri;
-        if (_imageCache.TryGetValue(key, out var cached)) return cached;
+        if (_imageCache.TryGetValue(key, out var cached)) return cached.Bitmap;
 
         var bitmap = new BitmapImage();
         bitmap.BeginInit();
         bitmap.UriSource = uri;
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
         bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+        var decodeWidth = GetPreviewDecodeWidth(uri);
+        if (decodeWidth > 0) bitmap.DecodePixelWidth = decodeWidth;
         bitmap.EndInit();
         bitmap.Freeze();
 
-        _imageCache[key] = bitmap;
+        var estimatedBytes = Math.Max(1L, (long)bitmap.PixelWidth * bitmap.PixelHeight * 4L);
+        _imageCache[key] = new CachedBitmap(bitmap, estimatedBytes);
+        _imageCacheBytes += estimatedBytes;
         _imageCacheOrder.Enqueue(key);
-        while (_imageCacheOrder.Count > MaxImageCacheEntries)
-        {
-            _imageCache.Remove(_imageCacheOrder.Dequeue());
-        }
+        TrimImageCache(MaxImageCacheEntries, MaxImageCacheBytes);
         return bitmap;
+    }
+
+    private static int GetPreviewDecodeWidth(Uri uri)
+    {
+        if (!uri.IsFile || !File.Exists(uri.LocalPath)) return 0;
+        try
+        {
+            using var stream = File.Open(uri.LocalPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
+            var frame = decoder.Frames.FirstOrDefault();
+            return frame is not null && frame.PixelWidth > PreviewImageDecodeWidth
+                ? PreviewImageDecodeWidth
+                : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    public void TrimCaches(bool aggressive)
+    {
+        if (aggressive)
+        {
+            _imageCache.Clear();
+            _imageCacheOrder.Clear();
+            _imageCacheBytes = 0;
+            _formulaValidationCache.Clear();
+            return;
+        }
+
+        TrimImageCache(maxEntries: 2, maxBytes: 8L * 1024 * 1024);
+        if (_formulaValidationCache.Count > 32)
+        {
+            _formulaValidationCache.Clear();
+        }
+    }
+
+    private void TrimImageCache(int maxEntries, long maxBytes)
+    {
+        while ((_imageCache.Count > maxEntries || _imageCacheBytes > maxBytes) && _imageCacheOrder.Count > 0)
+        {
+            var oldestKey = _imageCacheOrder.Dequeue();
+            if (_imageCache.Remove(oldestKey, out var removed))
+            {
+                _imageCacheBytes = Math.Max(0, _imageCacheBytes - removed.EstimatedBytes);
+            }
+        }
     }
 
     private static string PlainText(ContainerInline container)

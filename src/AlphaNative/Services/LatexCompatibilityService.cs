@@ -27,13 +27,49 @@ internal static partial class LatexCompatibilityService
     [GeneratedRegex(@"\\[A-Za-z]+", RegexOptions.CultureInvariant)]
     private static partial Regex CommandRegex();
 
-    public static string Normalize(string latex)
-    {
-        if (string.IsNullOrEmpty(latex)) return latex;
+    [GeneratedRegex(@"\\mathbb\s*\{(?<content>[^{}]+)\}", RegexOptions.CultureInvariant)]
+    private static partial Regex BlackboardGroupRegex();
 
-        return CommandRegex().Replace(latex, static match =>
+    [GeneratedRegex(@"\\mathbb\s*(?<content>[A-Za-z0-9])", RegexOptions.CultureInvariant)]
+    private static partial Regex BlackboardSingleRegex();
+
+    /// <summary>
+    /// Returns compatibility candidates from closest visual approximation to
+    /// the most conservative parser-safe fallback.
+    /// </summary>
+    public static IEnumerable<string> GetFallbacks(string latex)
+    {
+        if (string.IsNullOrEmpty(latex)) yield break;
+
+        var aliases = NormalizeCommandAliases(latex);
+        var bold = ReplaceBlackboardBold(aliases, "mathbf");
+        if (!string.Equals(bold, latex, StringComparison.Ordinal))
+        {
+            yield return bold;
+        }
+
+        // \mathrm is known to be supported by the native parser and therefore
+        // serves as a final visual fallback when \mathbf is unavailable.
+        var roman = ReplaceBlackboardBold(aliases, "mathrm");
+        if (!string.Equals(roman, latex, StringComparison.Ordinal) &&
+            !string.Equals(roman, bold, StringComparison.Ordinal))
+        {
+            yield return roman;
+        }
+    }
+
+    private static string NormalizeCommandAliases(string latex)
+        => CommandRegex().Replace(latex, static match =>
             CommandAliases.TryGetValue(match.Value, out var replacement)
                 ? replacement
                 : match.Value);
+
+    private static string ReplaceBlackboardBold(string latex, string fallbackCommand)
+    {
+        var grouped = BlackboardGroupRegex().Replace(latex, match =>
+            $@"\{fallbackCommand}{{{match.Groups["content"].Value}}}");
+
+        return BlackboardSingleRegex().Replace(grouped, match =>
+            $@"\{fallbackCommand}{{{match.Groups["content"].Value}}}");
     }
 }

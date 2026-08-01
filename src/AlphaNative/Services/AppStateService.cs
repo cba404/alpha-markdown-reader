@@ -50,7 +50,8 @@ public sealed record AppState
     public bool DarkMode { get; init; }
     public bool SyncScroll { get; init; } = true;
     public bool ReadingNavigationVisible { get; init; } = true;
-    public string WheelScrollMode { get; init; } = "gentle";
+    public string WheelScrollMode { get; init; } = "three";
+    public bool ShowLineNumbers { get; init; } = false;
     public double WindowWidth { get; init; } = 1400;
     public double WindowHeight { get; init; } = 900;
 }

@@ -5,6 +5,7 @@
         Title="α · 原生 Markdown 编辑器"
         Width="1400" Height="900" MinWidth="920" MinHeight="620"
         WindowStartupLocation="CenterScreen"
+        StateChanged="Window_StateChanged"
         Background="{DynamicResource AppBackground}"
         Foreground="{DynamicResource TextBrush}"
         AllowDrop="True"
@@ -45,66 +46,66 @@
                     
 <Button x:Name="InsertMenuButton" Content="插入 ▾" Click="InsertMenu_Click" ToolTip="插入 Markdown 格式与内容" Style="{StaticResource ToolbarDropDownButton}" />
 <Popup x:Name="InsertPopup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
-    <Border Width="660" MaxHeight="720" Margin="0,8,0,0" Padding="18" CornerRadius="18" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+    <Border Width="540" MaxHeight="610" Margin="0,6,0,0" Padding="14" CornerRadius="16" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <StackPanel>
-            <TextBlock Text="标题" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,12" />
+            <TextBlock Text="标题" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="4,0,0,8" />
             <WrapPanel>
                 <Button Tag="h1" Click="Format_Click" Style="{StaticResource InsertCardButton}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="H1" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,16,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="一级标题" FontSize="16" VerticalAlignment="Center"/>
+                        <TextBlock Text="H1" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="一级标题" FontSize="14" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
                 <Button Tag="h2" Click="Format_Click" Style="{StaticResource InsertCardButton}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="H2" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,16,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="二级标题" FontSize="16" VerticalAlignment="Center"/>
+                        <TextBlock Text="H2" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="二级标题" FontSize="14" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                <Button Tag="h3" Click="Format_Click" Style="{StaticResource InsertCardButton}" Margin="0,0,0,10">
+                <Button Tag="h3" Click="Format_Click" Style="{StaticResource InsertCardButton}" Margin="0,0,0,8">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="H3" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,16,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="三级标题" FontSize="16" VerticalAlignment="Center"/>
+                        <TextBlock Text="H3" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="三级标题" FontSize="14" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </WrapPanel>
 
-            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="4,4,4,12" />
-            <TextBlock Text="文本格式" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,12" />
+            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="2,2,2,8" />
+            <TextBlock Text="文本格式" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="4,0,0,8" />
             <WrapPanel>
-                <Button Tag="bold" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56">
-                    <StackPanel Orientation="Horizontal"><TextBlock Text="B" FontWeight="Bold" FontSize="20" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="粗体" FontSize="16"/></StackPanel>
+                <Button Tag="bold" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="B" FontWeight="Bold" FontSize="17" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="粗体" FontSize="14"/></StackPanel>
                 </Button>
-                <Button Tag="italic" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56">
-                    <StackPanel Orientation="Horizontal"><TextBlock Text="I" FontStyle="Italic" FontSize="20" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="斜体" FontSize="16"/></StackPanel>
+                <Button Tag="italic" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="I" FontStyle="Italic" FontSize="17" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="斜体" FontSize="14"/></StackPanel>
                 </Button>
-                <Button Tag="strike" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56">
-                    <StackPanel Orientation="Horizontal"><TextBlock Text="S" TextDecorations="Strikethrough" FontSize="20" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="删除线" FontSize="16"/></StackPanel>
+                <Button Tag="strike" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="S" TextDecorations="Strikethrough" FontSize="17" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="删除线" FontSize="14"/></StackPanel>
                 </Button>
-                <Button Tag="inlineCode" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56" Margin="0,0,0,10">
-                    <StackPanel Orientation="Horizontal"><TextBlock Text="&lt;/&gt;" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="行内代码" FontSize="16"/></StackPanel>
+                <Button Tag="inlineCode" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48" Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&lt;/&gt;" FontSize="16" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="行内代码" FontSize="14"/></StackPanel>
                 </Button>
             </WrapPanel>
 
-            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="4,4,4,12" />
-            <TextBlock Text="内容块" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,12" />
+            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="2,2,2,8" />
+            <TextBlock Text="内容块" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="4,0,0,8" />
             <WrapPanel>
-                <Button Tag="quote" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text=">" FontSize="22" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="引用" FontSize="16"/></StackPanel></Button>
-                <Button Tag="ul" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="•" FontSize="20" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="无序列表" FontSize="16"/></StackPanel></Button>
-                <Button Tag="ol" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="1." FontSize="20" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="有序列表" FontSize="16"/></StackPanel></Button>
-                <Button Tag="task" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56" Margin="0,0,0,10"><StackPanel Orientation="Horizontal"><TextBlock Text="☑" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="任务列表" FontSize="16"/></StackPanel></Button>
-                <Button Tag="link" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="↗" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="链接" FontSize="16"/></StackPanel></Button>
-                <Button Tag="image" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="▨" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="图片" FontSize="16"/></StackPanel></Button>
-                <Button Tag="code" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56"><StackPanel Orientation="Horizontal"><TextBlock Text="&#123;&#125;" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="代码块" FontSize="16"/></StackPanel></Button>
-                <Button Tag="table" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="150" Height="56" Margin="0,0,0,10"><StackPanel Orientation="Horizontal"><TextBlock Text="▦" FontSize="18" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="表格" FontSize="16"/></StackPanel></Button>
+                <Button Tag="quote" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48"><StackPanel Orientation="Horizontal"><TextBlock Text=">" FontSize="22" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="引用" FontSize="14"/></StackPanel></Button>
+                <Button Tag="ul" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48"><StackPanel Orientation="Horizontal"><TextBlock Text="•" FontSize="17" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="无序列表" FontSize="14"/></StackPanel></Button>
+                <Button Tag="ol" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48"><StackPanel Orientation="Horizontal"><TextBlock Text="1." FontSize="17" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="有序列表" FontSize="14"/></StackPanel></Button>
+                <Button Tag="task" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48" Margin="0,0,0,8"><StackPanel Orientation="Horizontal"><TextBlock Text="☑" FontSize="16" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="任务列表" FontSize="14"/></StackPanel></Button>
+                <Button Tag="link" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48"><StackPanel Orientation="Horizontal"><TextBlock Text="↗" FontSize="16" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="链接" FontSize="14"/></StackPanel></Button>
+                <Button Tag="image" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48"><StackPanel Orientation="Horizontal"><TextBlock Text="▨" FontSize="16" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="图片" FontSize="14"/></StackPanel></Button>
+                <Button Tag="code" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48"><StackPanel Orientation="Horizontal"><TextBlock Text="&#123;&#125;" FontSize="16" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="代码块" FontSize="14"/></StackPanel></Button>
+                <Button Tag="table" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="121" Height="48" Margin="0,0,0,8"><StackPanel Orientation="Horizontal"><TextBlock Text="▦" FontSize="16" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="表格" FontSize="14"/></StackPanel></Button>
             </WrapPanel>
 
-            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="4,4,4,12" />
-            <TextBlock Text="数学公式" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,12" />
+            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="2,2,2,8" />
+            <TextBlock Text="数学公式" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="4,0,0,8" />
             <WrapPanel>
-                <Button Tag="inlineMath" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="196" Height="60"><StackPanel Orientation="Horizontal"><TextBlock Text="$...$" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="行内公式" FontSize="16"/></StackPanel></Button>
-                <Button Tag="blockMath" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="196" Height="60"><StackPanel Orientation="Horizontal"><TextBlock Text="$$...$$" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="块级公式" FontSize="16"/></StackPanel></Button>
-                <Button Tag="formulaLibrary" Click="FormulaLibrary_Click" Style="{StaticResource InsertCardButton}" Width="196" Height="60" Margin="0,0,0,10"><StackPanel Orientation="Horizontal"><TextBlock Text="ƒx" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="公式库" FontSize="16"/></StackPanel></Button>
+                <Button Tag="inlineMath" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="160" Height="50"><StackPanel Orientation="Horizontal"><TextBlock Text="$...$" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="行内公式" FontSize="14"/></StackPanel></Button>
+                <Button Tag="blockMath" Click="Format_Click" Style="{StaticResource InsertCardButton}" Width="160" Height="50"><StackPanel Orientation="Horizontal"><TextBlock Text="$$...$$" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="块级公式" FontSize="14"/></StackPanel></Button>
+                <Button Tag="formulaLibrary" Click="FormulaLibrary_Click" Style="{StaticResource InsertCardButton}" Width="160" Height="50" Margin="0,0,0,8"><StackPanel Orientation="Horizontal"><TextBlock Text="ƒx" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="2,0,14,0"/><TextBlock Text="公式库" FontSize="14"/></StackPanel></Button>
             </WrapPanel>
         </StackPanel>
     </Border>
@@ -113,26 +114,26 @@
                     
 <Button x:Name="ExportMenuButton" Content="导出 ▾" Click="ExportMenu_Click" ToolTip="导出为 HTML 或 PDF" Style="{StaticResource ToolbarDropDownButton}" />
 <Popup x:Name="ExportPopup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
-    <Border Width="460" Margin="0,8,0,0" CornerRadius="18" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-        <StackPanel Margin="12">
+    <Border Width="360" Margin="0,6,0,0" CornerRadius="16" Background="{DynamicResource PopupSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+        <StackPanel Margin="8">
             <Button Click="ExportPdf_Click" Style="{StaticResource ExportRowButton}">
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="74"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="PDF" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="PDF" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="导出 PDF" FontSize="17" FontWeight="SemiBold"/>
-                        <TextBlock Text="保存为 A4 PDF；浏览器会打开系统打印窗口" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"/>
+                        <TextBlock Text="导出 PDF" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="保存为 A4 PDF；浏览器会打开系统打印窗口" FontSize="11.5" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0"/>
                     </StackPanel>
                 </Grid>
             </Button>
-            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="10,2"/>
+            <Border Height="1" Background="{DynamicResource PopupDividerBrush}" Margin="8,1"/>
             <Button Click="ExportHtml_Click" Style="{StaticResource ExportRowButton}">
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="74"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="HTML" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="HTML" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="导出 HTML" FontSize="17" FontWeight="SemiBold"/>
-                        <TextBlock Text="生成可在浏览器中独立打开的网页文件" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"/>
+                        <TextBlock Text="导出 HTML" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="生成可在浏览器中独立打开的网页文件" FontSize="11.5" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0"/>
                     </StackPanel>
                 </Grid>
             </Button>
@@ -143,16 +144,19 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <Button x:Name="WheelSpeedButton" Content="滚轮：舒缓 ▾" Click="WheelSpeedMenu_Click"
-                            ToolTip="调整编辑区与预览区的鼠标滚轮灵敏度" Margin="0,0,8,0">
+                    <Button x:Name="WheelSpeedButton" Content="滚轮：3 行 ▾" Click="WheelSpeedMenu_Click"
+                            ToolTip="设置每格滚轮移动的 Markdown 行数" Margin="0,0,8,0">
                         <Button.ContextMenu>
                             <ContextMenu Placement="Bottom">
-                                <MenuItem Header="舒缓（推荐）" Tag="gentle"
+                                <MenuItem Header="精细：每格 1 行" Tag="one"
+                                          IsCheckable="True" Click="WheelSpeedOption_Click" />
+                                <MenuItem Header="标准：每格 3 行" Tag="three"
                                           IsCheckable="True" IsChecked="True" Click="WheelSpeedOption_Click" />
-                                <MenuItem Header="标准" Tag="standard"
+                                <MenuItem Header="快速：每格 5 行" Tag="five"
                                           IsCheckable="True" Click="WheelSpeedOption_Click" />
-                                <MenuItem Header="快速" Tag="fast"
-                                          IsCheckable="True" Click="WheelSpeedOption_Click" />
+                                <Separator />
+                                <MenuItem Header="显示编辑器行号" Tag="lineNumbers"
+                                          IsCheckable="True" Click="ShowLineNumbers_Click" />
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
@@ -233,7 +237,7 @@
                             <TextBlock x:Name="FileNameText" Text="未命名.md" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="12,0" VerticalAlignment="Center" HorizontalAlignment="Right" />
                         </DockPanel>
                         <avalon:TextEditor x:Name="Editor" Grid.Row="1"
-                                           ShowLineNumbers="True"
+                                           ShowLineNumbers="False"
                                            ScrollViewer.IsDeferredScrollingEnabled="True"
                                            FontFamily="Cascadia Mono,Consolas"
                                            FontSize="14.5"

@@ -25,6 +25,8 @@ public partial class MainWindow : Window
     private const string ProductName = "α";
     private const int MaxCachedPreviewDocuments = 1;
     private const int MaxCachedPreviewTextLength = 80_000;
+    private const double SyncedContentTopInset = 14d;
+    private const double PreviewTopDetectionThreshold = 36d;
     private readonly MarkdownDocumentRenderer _renderer = new();
     private readonly AppStateService _stateService = new();
     private readonly DispatcherTimer _previewTimer;
@@ -591,7 +593,7 @@ function greet(name) {
         var rect = pointer.GetCharacterRect(LogicalDirection.Forward);
         if (rect.IsEmpty) return;
 
-        var target = Math.Clamp(_previewScroll.VerticalOffset + rect.Top - 8, 0, _previewScroll.ScrollableHeight);
+        var target = Math.Clamp(_previewScroll.VerticalOffset + rect.Top - SyncedContentTopInset, 0, _previewScroll.ScrollableHeight);
         ScrollPreviewDirect(target);
     }
 
@@ -855,7 +857,7 @@ function greet(name) {
         var currentRect = _sourceAnchors[_anchorLines[index]].GetCharacterRect(LogicalDirection.Forward);
         if (currentRect.IsEmpty) return FindPreviewTopSourceLineFull();
 
-        while (index > 0 && currentRect.Top > 90)
+        while (index > 0 && currentRect.Top > PreviewTopDetectionThreshold)
         {
             index--;
             currentRect = _sourceAnchors[_anchorLines[index]].GetCharacterRect(LogicalDirection.Forward);
@@ -865,7 +867,7 @@ function greet(name) {
         while (index + 1 < _anchorLines.Length)
         {
             var nextRect = _sourceAnchors[_anchorLines[index + 1]].GetCharacterRect(LogicalDirection.Forward);
-            if (nextRect.IsEmpty || nextRect.Top > 90) break;
+            if (nextRect.IsEmpty || nextRect.Top > PreviewTopDetectionThreshold) break;
             index++;
         }
 
@@ -880,7 +882,7 @@ function greet(name) {
         {
             var rect = _sourceAnchors[_anchorLines[index]].GetCharacterRect(LogicalDirection.Forward);
             if (rect.IsEmpty) continue;
-            if (rect.Top > 90) break;
+            if (rect.Top > PreviewTopDetectionThreshold) break;
             currentIndex = index;
         }
         _lastPreviewAnchorIndex = currentIndex;
@@ -894,7 +896,7 @@ function greet(name) {
 
         var line = Math.Clamp(sourceLine, 1, Editor.Document.LineCount);
         var currentTopLine = GetEditorTopLine();
-        if (Math.Abs(currentTopLine - line) <= 1)
+        if (currentTopLine == line)
         {
             _lastPreviewSyncedLine = line;
             return;
@@ -902,12 +904,49 @@ function greet(name) {
 
         _lastPreviewSyncedLine = line;
         _syncingEditorFromPreview = true;
-        Editor.ScrollToLine(line);
+        ScrollEditorLineToTop(line);
         if (_activeDocument is not null) _activeDocument.TopLine = line;
 
         Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
         {
             _syncingEditorFromPreview = false;
+        }));
+    }
+
+
+    private void ScrollEditorLineToTop(int line)
+    {
+        if (Editor.Document is null || Editor.Document.LineCount == 0) return;
+
+        var targetLine = Math.Clamp(line, 1, Editor.Document.LineCount);
+        _editorScroll ??= FindVisualChild<ScrollViewer>(Editor);
+        Editor.ScrollToLine(targetLine);
+
+        // ScrollToLine only guarantees visibility. A second lightweight pass
+        // pins the corresponding visual line below the pane header, preventing
+        // the first visible line from being clipped and keeping both panes at
+        // the same top anchor.
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (_editorScroll is null || Editor.Document is null) return;
+            try
+            {
+                Editor.TextArea.TextView.EnsureVisualLines();
+                var visualLine = Editor.TextArea.TextView.VisualLines.FirstOrDefault(item =>
+                    item.FirstDocumentLine.LineNumber == targetLine);
+                if (visualLine is null) return;
+
+                var targetOffset = Math.Clamp(
+                    visualLine.VisualTop - SyncedContentTopInset,
+                    0,
+                    _editorScroll.ScrollableHeight);
+                _editorScroll.ScrollToVerticalOffset(targetOffset);
+            }
+            catch
+            {
+                // Layout may be changing while switching documents; the first
+                // ScrollToLine call still leaves the requested line visible.
+            }
         }));
     }
 
@@ -925,7 +964,7 @@ function greet(name) {
         var pointer = _sourceAnchors[_anchorLines[index]];
         var rect = pointer.GetCharacterRect(LogicalDirection.Forward);
         if (rect.IsEmpty) return;
-        var target = Math.Clamp(_previewScroll.VerticalOffset + rect.Top - 8, 0, _previewScroll.ScrollableHeight);
+        var target = Math.Clamp(_previewScroll.VerticalOffset + rect.Top - SyncedContentTopInset, 0, _previewScroll.ScrollableHeight);
         ScrollPreviewDirect(target);
     }
 

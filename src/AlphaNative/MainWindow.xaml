@@ -226,13 +226,13 @@
                 <GridSplitter x:Name="NavigationSplitter" Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
                               Background="{DynamicResource BorderBrush}" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
 
-                <Border x:Name="EditorPane" Grid.Column="2" Background="{DynamicResource PanelBackground}">
+                <Border x:Name="EditorPane" Grid.Column="2" Background="{DynamicResource PanelBackground}" ClipToBounds="True">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="36" />
+                            <RowDefinition Height="32" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <DockPanel Grid.Row="0" Background="{DynamicResource PopupSurfaceAltBrush}" LastChildFill="True">
+                        <DockPanel Grid.Row="0" Background="{DynamicResource PopupSurfaceAltBrush}" LastChildFill="True" Margin="0,0,0,1">
                             <TextBlock Text="MARKDOWN 编辑" Foreground="{DynamicResource MutedBrush}" FontSize="11" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center" />
                             <TextBlock x:Name="FileNameText" Text="未命名.md" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="12,0" VerticalAlignment="Center" HorizontalAlignment="Right" />
                         </DockPanel>
@@ -246,7 +246,7 @@
                                            WordWrap="True"
                                            HorizontalScrollBarVisibility="Auto"
                                            VerticalScrollBarVisibility="Auto"
-                                           Padding="32,26,32,80"
+                                           Padding="32,18,32,80"
                                            Background="{DynamicResource PanelBackground}"
                                            Foreground="{DynamicResource TextBrush}"
                                            PreviewMouseWheel="Editor_PreviewMouseWheel"
@@ -257,13 +257,13 @@
                 <GridSplitter x:Name="MainSplitter" Grid.Column="3" Width="5" HorizontalAlignment="Stretch"
                               Background="{DynamicResource BorderBrush}" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
 
-                <Border x:Name="PreviewPane" Grid.Column="4" Background="{DynamicResource PanelBackground}">
+                <Border x:Name="PreviewPane" Grid.Column="4" Background="{DynamicResource PanelBackground}" ClipToBounds="True">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="36" />
+                            <RowDefinition Height="32" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <DockPanel Grid.Row="0" Background="{DynamicResource PopupSurfaceAltBrush}" LastChildFill="True">
+                        <DockPanel Grid.Row="0" Background="{DynamicResource PopupSurfaceAltBrush}" LastChildFill="True" Margin="0,0,0,1">
                             <TextBlock Text="原生实时预览" Foreground="{DynamicResource MutedBrush}" FontSize="11" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="8,0">
                                 <TextBlock x:Name="CodeStatusText" Text="代码 0" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="5,0" VerticalAlignment="Center" />

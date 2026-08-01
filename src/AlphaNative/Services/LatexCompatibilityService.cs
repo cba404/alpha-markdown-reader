@@ -33,6 +33,17 @@ internal static partial class LatexCompatibilityService
     [GeneratedRegex(@"\\mathbb\s*(?<content>[A-Za-z0-9])", RegexOptions.CultureInvariant)]
     private static partial Regex BlackboardSingleRegex();
 
+    [GeneratedRegex(@"\\(?:boldsymbol|bm)\s*\{(?<content>[^{}]+)\}", RegexOptions.CultureInvariant)]
+    private static partial Regex BoldSymbolGroupRegex();
+
+    [GeneratedRegex(@"\\(?:boldsymbol|bm)\s*(?<content>\\[A-Za-z]+|[A-Za-z0-9])", RegexOptions.CultureInvariant)]
+    private static partial Regex BoldSymbolSingleRegex();
+
+    [GeneratedRegex(
+        @"\\begin\s*\{(?<environment>bmatrix|pmatrix|Bmatrix|vmatrix|Vmatrix)\}(?<content>.*?)\\end\s*\{\k<environment>\}",
+        RegexOptions.CultureInvariant | RegexOptions.Singleline)]
+    private static partial Regex DelimitedMatrixRegex();
+
     /// <summary>
     /// Returns compatibility candidates from closest visual approximation to
     /// the most conservative parser-safe fallback.
@@ -41,21 +52,28 @@ internal static partial class LatexCompatibilityService
     {
         if (string.IsNullOrEmpty(latex)) yield break;
 
+        var seen = new HashSet<string>(StringComparer.Ordinal) { latex };
         var aliases = NormalizeCommandAliases(latex);
-        var bold = ReplaceBlackboardBold(aliases, "mathbf");
-        if (!string.Equals(bold, latex, StringComparison.Ordinal))
-        {
-            yield return bold;
-        }
+        if (seen.Add(aliases)) yield return aliases;
 
-        // \mathrm is known to be supported by the native parser and therefore
-        // serves as a final visual fallback when \mathbf is unavailable.
-        var roman = ReplaceBlackboardBold(aliases, "mathrm");
-        if (!string.Equals(roman, latex, StringComparison.Ordinal) &&
-            !string.Equals(roman, bold, StringComparison.Ordinal))
-        {
-            yield return roman;
-        }
+        var bold = ReplaceMathAlphabets(aliases, "mathbf");
+        if (seen.Add(bold)) yield return bold;
+
+        var boldWithMatrices = NormalizeDelimitedMatrices(bold);
+        if (seen.Add(boldWithMatrices)) yield return boldWithMatrices;
+
+        // \mathrm is known to be a conservative fallback for Latin symbols.
+        var roman = ReplaceMathAlphabets(aliases, "mathrm");
+        if (seen.Add(roman)) yield return roman;
+
+        var romanWithMatrices = NormalizeDelimitedMatrices(roman);
+        if (seen.Add(romanWithMatrices)) yield return romanWithMatrices;
+
+        // Final fallback keeps the mathematical content while dropping only
+        // unsupported alphabet styling commands.
+        var plain = RemoveUnsupportedAlphabetStyling(aliases);
+        var plainWithMatrices = NormalizeDelimitedMatrices(plain);
+        if (seen.Add(plainWithMatrices)) yield return plainWithMatrices;
     }
 
     private static string NormalizeCommandAliases(string latex)
@@ -64,12 +82,38 @@ internal static partial class LatexCompatibilityService
                 ? replacement
                 : match.Value);
 
-    private static string ReplaceBlackboardBold(string latex, string fallbackCommand)
+    private static string ReplaceMathAlphabets(string latex, string fallbackCommand)
     {
-        var grouped = BlackboardGroupRegex().Replace(latex, match =>
+        var result = BlackboardGroupRegex().Replace(latex, match =>
             $@"\{fallbackCommand}{{{match.Groups["content"].Value}}}");
-
-        return BlackboardSingleRegex().Replace(grouped, match =>
+        result = BlackboardSingleRegex().Replace(result, match =>
+            $@"\{fallbackCommand}{{{match.Groups["content"].Value}}}");
+        result = BoldSymbolGroupRegex().Replace(result, match =>
+            $@"\{fallbackCommand}{{{match.Groups["content"].Value}}}");
+        return BoldSymbolSingleRegex().Replace(result, match =>
             $@"\{fallbackCommand}{{{match.Groups["content"].Value}}}");
     }
+
+    private static string RemoveUnsupportedAlphabetStyling(string latex)
+    {
+        var result = BlackboardGroupRegex().Replace(latex, "${content}");
+        result = BlackboardSingleRegex().Replace(result, "${content}");
+        result = BoldSymbolGroupRegex().Replace(result, "${content}");
+        return BoldSymbolSingleRegex().Replace(result, "${content}");
+    }
+
+    private static string NormalizeDelimitedMatrices(string latex)
+        => DelimitedMatrixRegex().Replace(latex, static match =>
+        {
+            var content = match.Groups["content"].Value;
+            var matrix = $@"\begin{{matrix}}{content}\end{{matrix}}";
+            return match.Groups["environment"].Value switch
+            {
+                "pmatrix" => @"\left(" + matrix + @"\right)",
+                "Bmatrix" => @"\left\{" + matrix + @"\right\}",
+                "vmatrix" => @"\left|" + matrix + @"\right|",
+                "Vmatrix" => @"\left\|" + matrix + @"\right\|",
+                _ => @"\left[" + matrix + @"\right]"
+            };
+        });
 }

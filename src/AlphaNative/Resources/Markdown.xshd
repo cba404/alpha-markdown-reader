@@ -21,4 +21,5 @@
   <Rule color="Comment">&lt;!--.*?--&gt;</Rule>
   <Span color="Code" begin="^\s*```" end="^\s*```" multiline="true" />
   <Span color="Math" begin="^\s*\$\$\s*$" end="^\s*\$\$\s*$" multiline="true" />
+  <Span color="Math" begin="^\s*\\\[\s*$" end="^\s*\\\]\s*$" multiline="true" />
 </SyntaxDefinition>

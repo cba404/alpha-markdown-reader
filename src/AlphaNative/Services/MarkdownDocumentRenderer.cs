@@ -69,13 +69,14 @@ public sealed class MarkdownDocumentRenderer
             FontSize = 16,
             Foreground = theme.Foreground,
             Background = theme.PanelBackground,
-            PagePadding = new Thickness(forPrint ? 48 : 32, forPrint ? 44 : 26, forPrint ? 48 : 32, forPrint ? 56 : 80),
+            PagePadding = new Thickness(forPrint ? 48 : 32, forPrint ? 44 : 18, forPrint ? 48 : 32, forPrint ? 56 : 80),
             LineHeight = double.NaN,
             TextAlignment = TextAlignment.Left,
             ColumnWidth = double.PositiveInfinity
         };
 
-        var document = Markdig.Markdown.Parse(markdown ?? string.Empty, _pipeline);
+        var normalizedMarkdown = MarkdownMathDelimiterNormalizer.NormalizeForPreview(markdown ?? string.Empty);
+        var document = Markdig.Markdown.Parse(normalizedMarkdown, _pipeline);
         foreach (var block in document)
         {
             RenderBlock(block, flow.Blocks);

@@ -1,5 +1,5 @@
 #define MyAppName "α Markdown 编辑器"
-#define MyAppVersion "1.1.2"
+#define MyAppVersion "1.2.1"
 #define MyAppPublisher "Alpha"
 #define MyAppExeName "α.exe"
 

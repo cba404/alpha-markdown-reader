@@ -5,6 +5,7 @@ namespace AlphaNative.Services;
 
 public sealed class AppStateService
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = false };
     private readonly string _statePath;
 
     public AppStateService()
@@ -19,7 +20,7 @@ public sealed class AppStateService
         try
         {
             if (!File.Exists(_statePath)) return new AppState();
-            return JsonSerializer.Deserialize<AppState>(File.ReadAllText(_statePath)) ?? new AppState();
+            return JsonSerializer.Deserialize<AppState>(File.ReadAllText(_statePath), SerializerOptions) ?? new AppState();
         }
         catch
         {
@@ -31,7 +32,7 @@ public sealed class AppStateService
     {
         try
         {
-            var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(state, SerializerOptions);
             File.WriteAllText(_statePath, json);
         }
         catch
@@ -44,9 +45,11 @@ public sealed class AppStateService
 public sealed record AppState
 {
     public string? LastFile { get; init; }
+    public string[]? OpenFiles { get; init; }
     public string? RecoveryText { get; init; }
     public bool DarkMode { get; init; }
     public bool SyncScroll { get; init; } = true;
+    public bool ReadingNavigationVisible { get; init; } = true;
     public double WindowWidth { get; init; } = 1400;
     public double WindowHeight { get; init; } = 900;
 }

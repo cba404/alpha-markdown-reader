@@ -25,8 +25,16 @@ namespace AlphaNative.Services;
 
 public sealed class MarkdownDocumentRenderer
 {
+    private const int MaxImageCacheEntries = 24;
+    private const int MaxFormulaCacheEntries = 160;
+    private static readonly FontFamily UiFont = new("Segoe UI, Microsoft YaHei UI");
+    private static readonly FontFamily CodeFont = new("Cascadia Mono, Consolas");
+
     private readonly MarkdownPipeline _pipeline;
     private readonly SortedDictionary<int, WpfBlock> _anchorBlocks = new();
+    private readonly Dictionary<string, BitmapSource> _imageCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Queue<string> _imageCacheOrder = new();
+    private readonly Dictionary<string, string?> _formulaValidationCache = new(StringComparer.Ordinal);
     private RendererTheme _theme = RendererTheme.Light;
     private string? _baseDirectory;
     private bool _forPrint;
@@ -52,7 +60,7 @@ public sealed class MarkdownDocumentRenderer
 
         var flow = new FlowDocument
         {
-            FontFamily = new FontFamily("Segoe UI, Microsoft YaHei UI"),
+            FontFamily = UiFont,
             FontSize = 16,
             Foreground = theme.Foreground,
             Background = theme.PanelBackground,
@@ -258,9 +266,15 @@ public sealed class MarkdownDocumentRenderer
     private WpfBlock RenderMathBlock(MathBlock math)
     {
         var latex = math.Lines.ToString().Trim();
+        var validationError = ValidateFormula(latex);
+        if (validationError is not null)
+        {
+            _formulaErrors++;
+            return ErrorBlock($"公式错误：{validationError}\n{latex}");
+        }
+
         try
         {
-            WpfTeXFormulaParser.Instance.Parse(latex);
             var formula = new FormulaControl
             {
                 Formula = latex,
@@ -277,11 +291,6 @@ public sealed class MarkdownDocumentRenderer
                 HorizontalAlignment = HorizontalAlignment.Stretch
             });
         }
-        catch (TexException ex)
-        {
-            _formulaErrors++;
-            return ErrorBlock($"公式错误：{ex.Message}\n{latex}");
-        }
         catch (Exception ex)
         {
             _formulaErrors++;
@@ -295,7 +304,7 @@ public sealed class MarkdownDocumentRenderer
         var normalized = SyntaxHighlighter.NormalizeLanguage(language.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault());
         var codeText = new TextBlock
         {
-            FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+            FontFamily = CodeFont,
             FontSize = 13.5,
             TextWrapping = _forPrint ? TextWrapping.Wrap : TextWrapping.NoWrap,
             Padding = new Thickness(14, 12, 14, 14)
@@ -370,7 +379,7 @@ public sealed class MarkdownDocumentRenderer
     {
         return new Paragraph(new Run(text)
         {
-            FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+            FontFamily = CodeFont,
             Foreground = _theme.Muted
         })
         {
@@ -393,7 +402,7 @@ public sealed class MarkdownDocumentRenderer
                 Text = message,
                 Foreground = Brushes.IndianRed,
                 TextWrapping = TextWrapping.Wrap,
-                FontFamily = new FontFamily("Cascadia Mono, Consolas")
+                FontFamily = CodeFont
             }
         });
     }
@@ -419,7 +428,7 @@ public sealed class MarkdownDocumentRenderer
             case CodeInline code:
                 target.Add(new Run(code.Content)
                 {
-                    FontFamily = new FontFamily("Cascadia Mono, Consolas"),
+                    FontFamily = CodeFont,
                     Background = _theme.CodeBackground,
                     Foreground = _theme.Foreground
                 });
@@ -498,9 +507,20 @@ public sealed class MarkdownDocumentRenderer
 
     private void AppendInlineMath(string latex, InlineCollection target)
     {
+        var validationError = ValidateFormula(latex);
+        if (validationError is not null)
+        {
+            _formulaErrors++;
+            target.Add(new Run($"[公式错误：{validationError}]")
+            {
+                Foreground = Brushes.IndianRed,
+                FontFamily = CodeFont
+            });
+            return;
+        }
+
         try
         {
-            WpfTeXFormulaParser.Instance.Parse(latex);
             var control = new FormulaControl
             {
                 Formula = latex,
@@ -519,9 +539,35 @@ public sealed class MarkdownDocumentRenderer
             target.Add(new Run($"[公式错误：{ex.Message}]")
             {
                 Foreground = Brushes.IndianRed,
-                FontFamily = new FontFamily("Cascadia Mono, Consolas")
+                FontFamily = CodeFont
             });
         }
+    }
+
+    private string? ValidateFormula(string latex)
+    {
+        if (_formulaValidationCache.TryGetValue(latex, out var cached)) return cached;
+
+        string? error = null;
+        try
+        {
+            WpfTeXFormulaParser.Instance.Parse(latex);
+        }
+        catch (TexException ex)
+        {
+            error = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        if (_formulaValidationCache.Count >= MaxFormulaCacheEntries)
+        {
+            _formulaValidationCache.Clear();
+        }
+        _formulaValidationCache[latex] = error;
+        return error;
     }
 
     private void AppendImage(LinkInline link, InlineCollection target)
@@ -545,12 +591,7 @@ public sealed class MarkdownDocumentRenderer
                 return;
             }
 
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = uri;
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.EndInit();
-            bitmap.Freeze();
+            var bitmap = GetCachedBitmap(uri);
 
             target.Add(new InlineUIContainer(new Image
             {
@@ -564,6 +605,30 @@ public sealed class MarkdownDocumentRenderer
         {
             target.Add(new Run($"[图片无法加载：{alt}]") { Foreground = _theme.Muted });
         }
+    }
+
+    private BitmapSource GetCachedBitmap(Uri uri)
+    {
+        var key = uri.IsFile && File.Exists(uri.LocalPath)
+            ? $"{uri.AbsoluteUri}|{File.GetLastWriteTimeUtc(uri.LocalPath).Ticks}"
+            : uri.AbsoluteUri;
+        if (_imageCache.TryGetValue(key, out var cached)) return cached;
+
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.UriSource = uri;
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        _imageCache[key] = bitmap;
+        _imageCacheOrder.Enqueue(key);
+        while (_imageCacheOrder.Count > MaxImageCacheEntries)
+        {
+            _imageCache.Remove(_imageCacheOrder.Dequeue());
+        }
+        return bitmap;
     }
 
     private static string PlainText(ContainerInline container)

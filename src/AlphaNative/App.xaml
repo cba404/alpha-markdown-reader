@@ -12,6 +12,47 @@
         <SolidColorBrush x:Key="AccentSoftBrush" Color="#E9EDFF" />
         <SolidColorBrush x:Key="CodeBackground" Color="#F6F8FA" />
 
+        <!-- WPF 没有 CSS 的 border-radius；按钮圆角由模板中的 CornerRadius 控制。 -->
+        <ControlTemplate x:Key="RoundedButtonTemplate" TargetType="{x:Type Button}">
+            <Border x:Name="ButtonBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <Border x:Name="InteractionOverlay"
+                            Background="{DynamicResource AccentSoftBrush}"
+                            CornerRadius="7"
+                            Opacity="0" />
+                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      RecognizesAccessKey="True" />
+                </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="InteractionOverlay" Property="Opacity" Value="0.38" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="InteractionOverlay" Property="Opacity" Value="0.66" />
+                    <Setter TargetName="ButtonBorder" Property="RenderTransform">
+                        <Setter.Value>
+                            <ScaleTransform ScaleX="0.985" ScaleY="0.985" />
+                        </Setter.Value>
+                    </Setter>
+                    <Setter TargetName="ButtonBorder" Property="RenderTransformOrigin" Value="0.5,0.5" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.48" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="32" />
             <Setter Property="Padding" Value="11,4" />
@@ -20,7 +61,10 @@
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template" Value="{StaticResource RoundedButtonTemplate}" />
         </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -34,6 +78,51 @@
             <Setter Property="MinHeight" Value="28" />
             <Setter Property="Padding" Value="9,2" />
             <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <Style x:Key="DocumentTabButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="12,2,32,2" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style x:Key="ActiveDocumentTabButton" TargetType="Button" BasedOn="{StaticResource DocumentTabButton}">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+
+        <Style x:Key="NavigationItemButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="ToolTipService.ShowDuration" Value="20000" />
+        </Style>
+
+        <Style x:Key="ActiveNavigationItemButton" TargetType="Button" BasedOn="{StaticResource NavigationItemButton}">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="CloseDocumentTabButton" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="MinWidth" Value="24" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,3,3,3" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
         </Style>
     </Application.Resources>
 </Application>

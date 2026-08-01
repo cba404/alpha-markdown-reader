@@ -28,6 +28,13 @@ public static class SyntaxHighlighter
         ["yml"] = "yaml", ["md"] = "markdown", ["c++"] = "cpp", ["cxx"] = "cpp",
         ["cs"] = "csharp", ["text"] = "plaintext", ["txt"] = "plaintext"
     };
+    private static readonly object RegexCacheLock = new();
+    private static readonly Dictionary<string, Regex?> RegexCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Palette DarkPalette = new(
+        B("#FF7B72"), B("#A5D6FF"), B("#8B949E"), B("#79C0FF"), B("#FFA657"), B("#D2A8FF"), B("#E6EDF3"));
+    private static readonly Palette LightPalette = new(
+        B("#CF222E"), B("#0A3069"), B("#6E7781"), B("#0550AE"), B("#953800"), B("#8250DF"), B("#24292F"));
+
 
     public static string NormalizeLanguage(string? language)
     {
@@ -156,6 +163,17 @@ public static class SyntaxHighlighter
 
     private static Regex? CreateRegex(string language)
     {
+        lock (RegexCacheLock)
+        {
+            if (RegexCache.TryGetValue(language, out var cached)) return cached;
+            var created = BuildRegex(language);
+            RegexCache[language] = created;
+            return created;
+        }
+    }
+
+    private static Regex? BuildRegex(string language)
+    {
         if (language is "plaintext" or "") return null;
 
         var keywords = language switch
@@ -210,12 +228,7 @@ public static class SyntaxHighlighter
             TimeSpan.FromMilliseconds(250));
     }
 
-    private static Palette CreatePalette(bool dark)
-    {
-        return dark
-            ? new Palette(B("#FF7B72"), B("#A5D6FF"), B("#8B949E"), B("#79C0FF"), B("#FFA657"), B("#D2A8FF"), B("#E6EDF3"))
-            : new Palette(B("#CF222E"), B("#0A3069"), B("#6E7781"), B("#0550AE"), B("#953800"), B("#8250DF"), B("#24292F"));
-    }
+    private static Palette CreatePalette(bool dark) => dark ? DarkPalette : LightPalette;
 
     private static SolidColorBrush B(string color)
     {

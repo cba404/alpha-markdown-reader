@@ -11,6 +11,9 @@
         <SolidColorBrush x:Key="AccentBrush" Color="#3659E3" />
         <SolidColorBrush x:Key="AccentSoftBrush" Color="#E9EDFF" />
         <SolidColorBrush x:Key="CodeBackground" Color="#F6F8FA" />
+        <SolidColorBrush x:Key="PopupSurfaceBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="PopupSurfaceAltBrush" Color="#F6F8FC" />
+        <SolidColorBrush x:Key="PopupDividerBrush" Color="#E7EBF3" />
 
         <!-- WPF 没有 CSS 的 border-radius；按钮圆角由模板中的 CornerRadius 控制。 -->
         <ControlTemplate x:Key="RoundedButtonTemplate" TargetType="{x:Type Button}">
@@ -18,7 +21,7 @@
                     Background="{TemplateBinding Background}"
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="8"
+                    CornerRadius="12"
                     SnapsToDevicePixels="True">
                 <Grid>
                     <Border x:Name="InteractionOverlay"
@@ -37,12 +40,6 @@
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
                     <Setter TargetName="InteractionOverlay" Property="Opacity" Value="0.66" />
-                    <Setter TargetName="ButtonBorder" Property="RenderTransform">
-                        <Setter.Value>
-                            <ScaleTransform ScaleX="0.985" ScaleY="0.985" />
-                        </Setter.Value>
-                    </Setter>
-                    <Setter TargetName="ButtonBorder" Property="RenderTransformOrigin" Value="0.5,0.5" />
                 </Trigger>
                 <Trigger Property="IsKeyboardFocused" Value="True">
                     <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
@@ -55,7 +52,7 @@
 
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="32" />
-            <Setter Property="Padding" Value="11,4" />
+            <Setter Property="Padding" Value="14,6" />
             <Setter Property="Margin" Value="3,0" />
             <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -124,5 +121,33 @@
             <Setter Property="FontSize" Value="15" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
         </Style>
+    
+<Style x:Key="ToolbarDropDownButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Padding" Value="16,8" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Background" Value="{DynamicResource PanelBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+</Style>
+
+<Style x:Key="InsertCardButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Width" Value="202" />
+    <Setter Property="Height" Value="68" />
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="Margin" Value="0,0,10,10" />
+    <Setter Property="Background" Value="{DynamicResource PopupSurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+</Style>
+
+<Style x:Key="ExportRowButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Padding" Value="18,16" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+</Style>
+
     </Application.Resources>
 </Application>

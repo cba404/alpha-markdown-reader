@@ -266,18 +266,18 @@ public sealed class MarkdownDocumentRenderer
     private WpfBlock RenderMathBlock(MathBlock math)
     {
         var latex = math.Lines.ToString().Trim();
-        var validationError = ValidateFormula(latex);
-        if (validationError is not null)
+        var prepared = PrepareFormula(latex);
+        if (prepared.Error is not null)
         {
             _formulaErrors++;
-            return ErrorBlock($"公式错误：{validationError}\n{latex}");
+            return ErrorBlock($"公式错误：{prepared.Error}\n{latex}");
         }
 
         try
         {
             var formula = new FormulaControl
             {
-                Formula = latex,
+                Formula = prepared.Formula,
                 FontSize = 21,
                 Foreground = _theme.Foreground,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -507,11 +507,11 @@ public sealed class MarkdownDocumentRenderer
 
     private void AppendInlineMath(string latex, InlineCollection target)
     {
-        var validationError = ValidateFormula(latex);
-        if (validationError is not null)
+        var prepared = PrepareFormula(latex);
+        if (prepared.Error is not null)
         {
             _formulaErrors++;
-            target.Add(new Run($"[公式错误：{validationError}]")
+            target.Add(new Run($"[公式错误：{prepared.Error}]")
             {
                 Foreground = Brushes.IndianRed,
                 FontFamily = CodeFont
@@ -523,7 +523,7 @@ public sealed class MarkdownDocumentRenderer
         {
             var control = new FormulaControl
             {
-                Formula = latex,
+                Formula = prepared.Formula,
                 FontSize = 17,
                 Foreground = _theme.Foreground,
                 Margin = new Thickness(2, 0, 2, 0)
@@ -543,6 +543,28 @@ public sealed class MarkdownDocumentRenderer
             });
         }
     }
+
+    private PreparedFormula PrepareFormula(string latex)
+    {
+        var originalError = ValidateFormula(latex);
+        if (originalError is null)
+        {
+            return new PreparedFormula(latex, null);
+        }
+
+        var compatible = LatexCompatibilityService.Normalize(latex);
+        if (string.Equals(compatible, latex, StringComparison.Ordinal))
+        {
+            return new PreparedFormula(latex, originalError);
+        }
+
+        var compatibleError = ValidateFormula(compatible);
+        return compatibleError is null
+            ? new PreparedFormula(compatible, null)
+            : new PreparedFormula(latex, originalError);
+    }
+
+    private readonly record struct PreparedFormula(string Formula, string? Error);
 
     private string? ValidateFormula(string latex)
     {

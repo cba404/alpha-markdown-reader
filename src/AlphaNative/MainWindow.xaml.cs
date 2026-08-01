@@ -28,8 +28,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _previewTimer;
     private readonly DispatcherTimer _statisticsTimer;
     private readonly DispatcherTimer _stateTimer;
+    private readonly DispatcherTimer _editorScrollSyncTimer;
     private readonly DispatcherTimer _previewScrollTimer;
-    private readonly DispatcherTimer _scrollAnimationTimer;
     private readonly SearchPanel _searchPanel;
     private readonly string[] _startupPaths;
     private readonly List<DocumentSession> _documents = new();
@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     private SortedDictionary<int, TextPointer> _sourceAnchors = new();
     private int[] _anchorLines = Array.Empty<int>();
     private int[] _navigationHeadingLines = Array.Empty<int>();
+    private ScrollViewer? _editorScroll;
     private ScrollViewer? _previewScroll;
     private string? _currentPath;
     private bool _dirty;
@@ -51,7 +52,7 @@ public partial class MainWindow : Window
     private bool _closingAccepted;
     private bool _scrollSyncQueued;
     private bool _previewUserOverride;
-    private bool _previewAnimating;
+    private bool _syncingPreviewFromEditor;
     private bool _previewScrollHooked;
     private bool _syncingEditorFromPreview;
     private bool _previewRefreshPending;
@@ -60,10 +61,10 @@ public partial class MainWindow : Window
     private int _lastPreviewSyncedLine = -1;
     private int _lastPreviewAnchorIndex;
     private int _activeNavigationIndex = -1;
-    private double _previewTargetOffset;
     private string _viewMode = "split";
     private int _untitledSequence = 1;
     private bool _navigationVisible = true;
+    private string _wheelScrollMode = "gentle";
 
     private sealed record NavigationHeading(int Level, string Title, int Line);
     private sealed record PreviewCacheEntry(string? FilePath, bool DarkMode, RenderResult Result);
@@ -160,21 +161,27 @@ function greet(name) {
             UpdateStatistics();
         };
 
-        _previewScrollTimer = new DispatcherTimer(DispatcherPriority.Render)
+        // 滚动同步采用低频合并，不再运行 16ms 逐帧动画。
+        // 这样可显著降低 FlowDocument 与 AvalonEdit 同时布局时的主线程压力。
+        _editorScrollSyncTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(34)
+            Interval = TimeSpan.FromMilliseconds(55)
+        };
+        _editorScrollSyncTimer.Tick += (_, _) =>
+        {
+            _editorScrollSyncTimer.Stop();
+            ProcessEditorScroll();
+        };
+
+        _previewScrollTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(75)
         };
         _previewScrollTimer.Tick += (_, _) =>
         {
             _previewScrollTimer.Stop();
             ProcessPreviewScroll();
         };
-
-        _scrollAnimationTimer = new DispatcherTimer(DispatcherPriority.Render)
-        {
-            Interval = TimeSpan.FromMilliseconds(16)
-        };
-        _scrollAnimationTimer.Tick += ScrollAnimationTimer_Tick;
 
         _stateTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
         {
@@ -207,7 +214,9 @@ function greet(name) {
         Height = Math.Max(MinHeight, _state.WindowHeight);
         _darkMode = _state.DarkMode;
         _navigationVisible = _state.ReadingNavigationVisible;
+        _wheelScrollMode = NormalizeWheelScrollMode(_state.WheelScrollMode);
         SyncScrollCheck.IsChecked = _state.SyncScroll;
+        ApplyWheelScrollMode(_wheelScrollMode, showStatus: false);
         ApplyTheme(_darkMode, refresh: false);
         SetNavigationVisibility(_navigationVisible);
 
@@ -247,6 +256,7 @@ function greet(name) {
 
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
+            _editorScroll = FindVisualChild<ScrollViewer>(Editor);
             _previewScroll = FindVisualChild<ScrollViewer>(PreviewViewer);
             AttachPreviewScrollTracking();
             QueueScrollSync();
@@ -276,8 +286,8 @@ function greet(name) {
         SaveAppState();
         _previewTimer.Stop();
         _statisticsTimer.Stop();
+        _editorScrollSyncTimer.Stop();
         _previewScrollTimer.Stop();
-        _scrollAnimationTimer.Stop();
         _stateTimer.Stop();
     }
 
@@ -489,35 +499,39 @@ function greet(name) {
 
     private void EditorScrolled()
     {
-        var topLine = GetEditorTopLine();
-        if (_activeDocument is not null)
+        if (!_syncingEditorFromPreview && SyncScrollCheck.IsChecked == true && _viewMode == "split")
         {
-            _activeDocument.TopLine = topLine;
+            _previewUserOverride = false;
+            _lastPreviewSyncedLine = -1;
+            _scrollSyncQueued = true;
         }
 
-        if (_navigationVisible) UpdateActiveNavigationItem(topLine);
-        if (_syncingEditorFromPreview) return;
+        // 只安排一次后台处理，不在每个 ScrollOffsetChanged 事件中强制布局。
+        if (!_editorScrollSyncTimer.IsEnabled) _editorScrollSyncTimer.Start();
+    }
 
-        _previewUserOverride = false;
-        _lastPreviewSyncedLine = -1;
-        QueueScrollSync();
+    private void ProcessEditorScroll()
+    {
+        var topLine = GetEditorTopLine();
+        if (_activeDocument is not null) _activeDocument.TopLine = topLine;
+        if (_navigationVisible) UpdateActiveNavigationItem(topLine);
+
+        var shouldSync = _scrollSyncQueued;
+        _scrollSyncQueued = false;
+        if (shouldSync) SyncPreviewToEditor(topLine);
     }
 
     private void QueueScrollSync()
     {
-        if (SyncScrollCheck.IsChecked != true || _viewMode != "split" || _scrollSyncQueued) return;
+        if (SyncScrollCheck.IsChecked != true || _viewMode != "split") return;
         _scrollSyncQueued = true;
-        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
-        {
-            _scrollSyncQueued = false;
-            SyncPreviewToEditor();
-        }));
+        if (!_editorScrollSyncTimer.IsEnabled) _editorScrollSyncTimer.Start();
     }
 
-    private void SyncPreviewToEditor()
+    private void SyncPreviewToEditor(int topLine)
     {
-        if (_previewUserOverride || _previewScroll is null || _anchorLines.Length == 0) return;
-        var topLine = GetEditorTopLine();
+        if (SyncScrollCheck.IsChecked != true || _viewMode != "split" ||
+            _previewUserOverride || _previewScroll is null || _anchorLines.Length == 0) return;
         var index = Array.BinarySearch(_anchorLines, topLine);
         if (index < 0) index = ~index - 1;
         if (index < 0) index = 0;
@@ -526,9 +540,8 @@ function greet(name) {
         var rect = pointer.GetCharacterRect(LogicalDirection.Forward);
         if (rect.IsEmpty) return;
 
-        var target = _previewScroll.VerticalOffset + rect.Top - 8;
-        _previewTargetOffset = Math.Clamp(target, 0, _previewScroll.ScrollableHeight);
-        StartPreviewAnimation();
+        var target = Math.Clamp(_previewScroll.VerticalOffset + rect.Top - 8, 0, _previewScroll.ScrollableHeight);
+        ScrollPreviewDirect(target);
     }
 
     private int GetEditorTopLine()
@@ -545,36 +558,95 @@ function greet(name) {
         }
     }
 
-    private void StartPreviewAnimation()
+    private void ScrollPreviewDirect(double targetOffset)
     {
-        _previewAnimating = true;
-        if (!_scrollAnimationTimer.IsEnabled) _scrollAnimationTimer.Start();
+        if (_previewScroll is null) return;
+        var target = Math.Clamp(targetOffset, 0, _previewScroll.ScrollableHeight);
+        if (Math.Abs(target - _previewScroll.VerticalOffset) < 1.5) return;
+
+        _syncingPreviewFromEditor = true;
+        _previewScroll.ScrollToVerticalOffset(target);
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+        {
+            _syncingPreviewFromEditor = false;
+        }));
     }
 
-    private void ScrollAnimationTimer_Tick(object? sender, EventArgs e)
+    private void Editor_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (!_previewAnimating || _previewScroll is null)
-        {
-            _scrollAnimationTimer.Stop();
-            return;
-        }
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) ||
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) return;
 
-        var current = _previewScroll.VerticalOffset;
-        var delta = _previewTargetOffset - current;
-        if (Math.Abs(delta) < 0.65)
+        _editorScroll ??= FindVisualChild<ScrollViewer>(Editor);
+        if (ScrollByWheel(_editorScroll, e.Delta))
         {
-            _previewScroll.ScrollToVerticalOffset(_previewTargetOffset);
-            _previewAnimating = false;
-            _scrollAnimationTimer.Stop();
-            return;
+            e.Handled = true;
         }
-
-        var factor = Math.Abs(delta) > _previewScroll.ViewportHeight ? 0.42 : 0.28;
-        _previewScroll.ScrollToVerticalOffset(current + delta * factor);
     }
 
     private void PreviewViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
-        => BeginPreviewUserScroll();
+    {
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) ||
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) return;
+
+        BeginPreviewUserScroll();
+        _previewScroll ??= FindVisualChild<ScrollViewer>(PreviewViewer);
+        if (ScrollByWheel(_previewScroll, e.Delta))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private bool ScrollByWheel(ScrollViewer? scrollViewer, int delta)
+    {
+        if (scrollViewer is null || delta == 0) return false;
+        var wheelSteps = delta / 120d;
+        var pixelsPerStep = _wheelScrollMode switch
+        {
+            "fast" => 96d,
+            "standard" => 66d,
+            _ => 42d
+        };
+        var target = Math.Clamp(
+            scrollViewer.VerticalOffset - wheelSteps * pixelsPerStep,
+            0,
+            scrollViewer.ScrollableHeight);
+        if (Math.Abs(target - scrollViewer.VerticalOffset) < 0.25) return false;
+        scrollViewer.ScrollToVerticalOffset(target);
+        return true;
+    }
+
+    private void WheelSpeedMenu_Click(object sender, RoutedEventArgs e) => OpenButtonContextMenu(sender);
+
+    private void WheelSpeedOption_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string mode }) return;
+        ApplyWheelScrollMode(mode, showStatus: true);
+    }
+
+    private void ApplyWheelScrollMode(string mode, bool showStatus)
+    {
+        _wheelScrollMode = NormalizeWheelScrollMode(mode);
+        if (WheelSpeedButton.ContextMenu is { } menu)
+        {
+            foreach (var item in menu.Items.OfType<MenuItem>())
+            {
+                item.IsChecked = item.Tag is string tag && tag == _wheelScrollMode;
+            }
+        }
+        var label = _wheelScrollMode switch
+        {
+            "fast" => "快速",
+            "standard" => "标准",
+            _ => "舒缓"
+        };
+        WheelSpeedButton.Content = $"滚轮：{label} ▾";
+        _stateSavePending = true;
+        if (showStatus) SetStatus($"滚轮灵敏度已设为{label}");
+    }
+
+    private static string NormalizeWheelScrollMode(string? mode)
+        => mode is "standard" or "fast" ? mode : "gentle";
 
     private void PreviewViewer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         => BeginPreviewUserScroll();
@@ -590,8 +662,9 @@ function greet(name) {
     private void BeginPreviewUserScroll()
     {
         _previewUserOverride = true;
-        _previewAnimating = false;
-        _scrollAnimationTimer.Stop();
+        _syncingPreviewFromEditor = false;
+        _editorScrollSyncTimer.Stop();
+        _scrollSyncQueued = false;
     }
 
     private void AttachPreviewScrollTracking()
@@ -603,13 +676,13 @@ function greet(name) {
 
     private void PreviewScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (_viewMode == "editor" || _anchorLines.Length == 0 || _previewAnimating) return;
+        if (_viewMode == "editor" || _anchorLines.Length == 0 || _syncingPreviewFromEditor) return;
         if (!_previewScrollTimer.IsEnabled) _previewScrollTimer.Start();
     }
 
     private void ProcessPreviewScroll()
     {
-        if (_viewMode == "editor" || _anchorLines.Length == 0 || _previewAnimating) return;
+        if (_viewMode == "editor" || _anchorLines.Length == 0 || _syncingPreviewFromEditor) return;
 
         var currentLine = GetPreviewTopSourceLine();
         if (_navigationVisible) UpdateActiveNavigationItem(currentLine);
@@ -663,12 +736,19 @@ function greet(name) {
         if (Editor.Document is null || Editor.Document.LineCount == 0) return;
 
         var line = Math.Clamp(sourceLine, 1, Editor.Document.LineCount);
+        var currentTopLine = GetEditorTopLine();
+        if (Math.Abs(currentTopLine - line) <= 1)
+        {
+            _lastPreviewSyncedLine = line;
+            return;
+        }
+
         _lastPreviewSyncedLine = line;
         _syncingEditorFromPreview = true;
         Editor.ScrollToLine(line);
         if (_activeDocument is not null) _activeDocument.TopLine = line;
 
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
         {
             _syncingEditorFromPreview = false;
         }));
@@ -688,8 +768,8 @@ function greet(name) {
         var pointer = _sourceAnchors[_anchorLines[index]];
         var rect = pointer.GetCharacterRect(LogicalDirection.Forward);
         if (rect.IsEmpty) return;
-        _previewTargetOffset = Math.Clamp(_previewScroll.VerticalOffset + rect.Top - 8, 0, _previewScroll.ScrollableHeight);
-        StartPreviewAnimation();
+        var target = Math.Clamp(_previewScroll.VerticalOffset + rect.Top - 8, 0, _previewScroll.ScrollableHeight);
+        ScrollPreviewDirect(target);
     }
 
     private void Navigation_Click(object sender, RoutedEventArgs e) => ToggleNavigation();
@@ -860,15 +940,23 @@ function greet(name) {
         _activeNavigationIndex = index;
         var activeButton = _navigationButtons[index];
         activeButton.Style = (Style)FindResource("ActiveNavigationItemButton");
-        activeButton.BringIntoView();
+        if (force) activeButton.BringIntoView();
     }
 
     private void New_Click(object sender, RoutedEventArgs e) => NewDocument();
     private void Open_Click(object sender, RoutedEventArgs e) => OpenDocument();
     private void Save_Click(object sender, RoutedEventArgs e) => SaveDocument();
     private void SaveAs_Click(object sender, RoutedEventArgs e) => SaveAsDocument();
-    private void ExportHtml_Click(object sender, RoutedEventArgs e) => ExportHtml();
-    private void ExportPdf_Click(object sender, RoutedEventArgs e) => ExportPdf();
+    private void ExportHtml_Click(object sender, RoutedEventArgs e)
+    {
+        CloseMenuPopups();
+        ExportHtml();
+    }
+    private void ExportPdf_Click(object sender, RoutedEventArgs e)
+    {
+        CloseMenuPopups();
+        ExportPdf();
+    }
 
     private void NewDocument()
     {
@@ -958,8 +1046,11 @@ function greet(name) {
 
         CaptureCurrentDocumentState();
         _previewTimer.Stop();
+        _editorScrollSyncTimer.Stop();
+        _previewScrollTimer.Stop();
+        _scrollSyncQueued = false;
         _previewUserOverride = false;
-        _previewAnimating = false;
+        _syncingPreviewFromEditor = false;
         _syncingEditorFromPreview = false;
         _lastPreviewSyncedLine = -1;
         _activeDocument = document;
@@ -1225,8 +1316,29 @@ function greet(name) {
         }
     }
 
-    private void InsertMenu_Click(object sender, RoutedEventArgs e) => OpenButtonContextMenu(sender);
-    private void ExportMenu_Click(object sender, RoutedEventArgs e) => OpenButtonContextMenu(sender);
+    private void InsertMenu_Click(object sender, RoutedEventArgs e)
+    {
+        ExportPopup.IsOpen = false;
+        InsertPopup.IsOpen = !InsertPopup.IsOpen;
+    }
+
+    private void ExportMenu_Click(object sender, RoutedEventArgs e)
+    {
+        InsertPopup.IsOpen = false;
+        ExportPopup.IsOpen = !ExportPopup.IsOpen;
+    }
+
+    private void FormulaLibrary_Click(object sender, RoutedEventArgs e)
+    {
+        CloseMenuPopups();
+        SetStatus("公式库预设将随下个版本继续扩充");
+    }
+
+    private void CloseMenuPopups()
+    {
+        InsertPopup.IsOpen = false;
+        ExportPopup.IsOpen = false;
+    }
 
     private static void OpenButtonContextMenu(object sender)
     {
@@ -1238,6 +1350,7 @@ function greet(name) {
     private void Format_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: string action }) return;
+        CloseMenuPopups();
         switch (action)
         {
             case "h1": PrefixSelectedLines("# "); break;
@@ -1380,6 +1493,13 @@ function greet(name) {
                 else QueueScrollSync();
                 break;
         }
+
+        if (_viewMode != "split")
+        {
+            _scrollSyncQueued = false;
+            _editorScrollSyncTimer.Stop();
+            _previewScrollTimer.Stop();
+        }
         UpdateViewButtons();
     }
 
@@ -1404,9 +1524,11 @@ function greet(name) {
         }
         else
         {
-            _previewAnimating = false;
+            _syncingPreviewFromEditor = false;
             _syncingEditorFromPreview = false;
-            _scrollAnimationTimer.Stop();
+            _scrollSyncQueued = false;
+            _editorScrollSyncTimer.Stop();
+            _previewScrollTimer.Stop();
             _stateSavePending = true;
             SetStatus("同步滚动已关闭");
         }
@@ -1474,6 +1596,7 @@ function greet(name) {
             DarkMode = _darkMode,
             SyncScroll = SyncScrollCheck.IsChecked == true,
             ReadingNavigationVisible = _navigationVisible,
+            WheelScrollMode = _wheelScrollMode,
             WindowWidth = ActualWidth > 0 ? ActualWidth : Width,
             WindowHeight = ActualHeight > 0 ? ActualHeight : Height
         };
